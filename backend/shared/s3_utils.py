@@ -1,7 +1,9 @@
 #s3 util functions for RAG
 # functions: handles urls, file uploads, downloads, bucket ops
 
+from http import HTTPMethod
 import boto3
+from botocore.config import Config
 import json
 import os
 from typing import Any, Optional, Dict
@@ -10,7 +12,8 @@ from typing import Any, Optional, Dict
 # centralizes client creation
 # no need to issue new creds on each call
 def get_s3_client():
-    return boto3.client('s3', region_name=os.environ.get('AWS-REGION', 'us-east-1'))
+    return boto3.client('s3', region_name=os.environ.get('AWS-REGION', 'us-east-1'),
+                        config=Config(signature_version="s3v4"),)
 
 # returns time limited s3 put url for uploads
 # 900s default time, returns url, headers, key
@@ -21,13 +24,14 @@ def generate_put_url(bucket: str, key: str, expiration: int = 900):
         url = s3_client.generate_presigned_url(
             'put_object',
             Params={'Bucket': bucket, 'Key': key},
-            ExpiresIn=expiration
+            ExpiresIn=expiration,
+            HttpMethod="PUT",
         )
         
         return {
             'url': url,
             'putHeaders': {
-                'Content-Type': 'application/octet-steam'
+                'Content-Type': 'application/octet-stream'
             },
             'key': key
         }
