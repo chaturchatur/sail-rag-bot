@@ -4,6 +4,18 @@
 resource "aws_apigatewayv2_api" "http_api" {
   name          = "${local.project_name}-http-api"
   protocol_type = "HTTP" # REST API 
+
+  # cors configuration
+  cors_configuration {
+    allow_origins = [
+      "http://localhost:3000",
+      "https://bidayx9gga.execute-api.us-east-1.amazonaws.com" # optional
+    ]
+    allow_methods = ["POST", "OPTIONS"]
+    allow_headers = ["content-type", "authorization"]
+    expose_headers = ["content-type"]
+    max_age        = 3600
+  }
 }
 
 # integrating with backend/lambda function
