@@ -65,6 +65,7 @@ yarn-error.log*
 test.txt
 output.json
 hello.txt
+pass.txt
 
 # Local history
 .history/
