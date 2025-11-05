@@ -7,7 +7,7 @@ from typing import Any, Optional, Dict, List
 # get openai key from aws secret manager
 # gets the latest val and returns it as a string
 def get_openai_key():
-    secret_arn = os.environ.get('OPEN_SECRET_ARN')
+    secret_arn = os.environ.get('OPENAI_SECRET_ARN')
     
     if not secret_arn:
         raise ValueError("openai secret not set")

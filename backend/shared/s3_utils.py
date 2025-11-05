@@ -42,7 +42,7 @@ def download_object(bucket: str, key: str, local_path: str):
     s3_client = get_s3_client()
     
     try:
-        s3_client.dowload_file(bucket, key, local_path)
+        s3_client.download_file(bucket, key, local_path)
         return local_path
     except Exception as e:
         print(f"error downloading from s3: {e}")

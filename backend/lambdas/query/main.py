@@ -2,11 +2,15 @@
 
 import os, json, tempfile
 import numpy as np
-from backend.shared import download_object, load_index, load_metadata, embed_texts, search_index
+from backend.shared import download_object, load_index, load_metadata, embed_texts, search_index, chat
 
 BUCKET = os.environ["BUCKET"]
 NAMESPACE = os.environ.get("NAMESPACE", "default")
 INDEX_PREFIX = f"{NAMESPACE}/index"
+SYSTEM_PROMPT = (
+    "You are a helpful assistant answering questions about the provided documents. "
+    "Use only the supplied context. If you cannot find the answer in the context, say you do not know."
+)
 
 # warm cache global vars
 _index = None
@@ -35,15 +39,55 @@ def handler(event, context):
 
     # call load to warm cache (_index/_meta are ready)
     _load() 
+    
     qemb = np.array(embed_texts([question])[0], dtype="float32")    # get embedding for question
     dists, inds = search_index(_index, qemb, k=k)                   # cosine similarity search (return top k)
-    sources = []                                                    
+    
+    contexts = [] 
+    chunks = []
+                                                       
     # build sources for each (score, idx) 
     # looks up _meta[idx] and returns minimal citation info
     for score, idx in zip(dists, inds):
         md = _meta.get(str(int(idx)), {})
-        sources.append({"source": md.get("source"), "page": md.get("page"), "score": float(score)})
+        if not md:
+            continue
 
-    # for now just return nearest chunks
-    # will add chat() to produce actual answer later lol
-    return {"statusCode": 200, "body": json.dumps({"answer": None, "chunks": sources})}
+        chunk_text = md.get("text", "")
+        source = md.get("source")
+        page = md.get("page")
+        label = source or "Unknown source"
+        if page is not None:
+            label = f"{label} (page {page})"
+
+        contexts.append(f"[{label}]\n{chunk_text}")
+        chunks.append(
+            {
+                "text": chunk_text,
+                "source": source,
+                "page": page,
+                "score": float(score),
+            }
+        )
+
+    if contexts:
+        messages = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": f"Question: {question}\n\nContext:\n" + "\n\n".join(contexts),
+            },
+        ]
+        answer = chat(messages, temperature=0)
+    else:
+        answer = "I could not find relevant context in the indexed documents."
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps(
+            {
+                "answer": answer,
+                "chunks": chunks,
+            }
+        ),
+    }
