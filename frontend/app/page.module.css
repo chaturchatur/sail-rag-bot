@@ -1,15 +1,203 @@
-.page {
+.app {
   min-height: 100vh;
   background: #0b0d12;
   color: #e2e8f0;
   display: flex;
+}
+
+.sidebar {
+  background: #11131a;
+  border-right: 1px solid rgba(148, 163, 184, 0.18);
+  display: flex;
   flex-direction: column;
+  transition: width 180ms ease;
+  overflow: hidden;
+}
+
+.sidebarExpanded {
+  width: 296px;
+}
+
+.sidebarCollapsed {
+  width: 72px;
+}
+
+.sidebarContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sidebarHeader {
+  padding: 24px 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.sidebarNewChatButton {
+  background: #11131a;
+  color: #f8fafc;
+  font-weight: 600;
+  border: none;
+  border-radius: 16px;
+  width: 100%;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+
+.sidebarNewChatButton:hover:not(:disabled) {
+  background: #1a1d28;
+}
+
+.sidebarNewChatButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sidebarNewChatExpanded {
+  padding: 0 16px;
+}
+
+.sidebarNewChatCollapsed {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebarNewChatLabel {
+  margin-left: 6px;
+}
+
+.sidebarSection {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 12px 24px;
+  overflow: hidden;
+}
+
+.sidebarSectionHeading {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.6);
+  padding: 0 12px;
+}
+
+.sessionList {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding: 0 8px 16px;
+}
+
+.sessionList::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sessionList::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.45);
+  border-radius: 999px;
+}
+
+.sessionChip {
+  appearance: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: background 140ms ease, color 140ms ease;
+  font-family: inherit;
+}
+
+.sessionChip:hover {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.sessionChipActive {
+  background: rgba(37, 99, 235, 0.3);
+  color: #f8fafc;
+}
+
+.sessionChip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.sessionChipText {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  min-width: 0;
+}
+
+.sessionChipLabel {
+  font-size: 0.88rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sessionChipId {
+  font-size: 0.7rem;
+  color: rgba(148, 163, 184, 0.65);
+  white-space: nowrap;
+}
+
+.sessionEmpty {
+  color: rgba(148, 163, 184, 0.7);
+  font-size: 0.82rem;
+  padding: 6px 12px;
+}
+
+.sidebarCollapsed .sidebarNewChatLabel,
+.sidebarCollapsed .sessionChipText,
+.sidebarCollapsed .sessionEmpty {
+  display: none;
+}
+
+.sidebarCollapsed .sidebarHeader {
+  padding: 20px 12px;
+  align-items: center;
+  gap: 12px;
+}
+
+.sidebarCollapsed .sidebarSection {
+  display: none;
+}
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: #0b0d12;
+  min-height: 100vh;
 }
 
 .topBar {
   display: flex;
   align-items: center;
-  padding: 20px 15px;
+  padding: 20px 24px;
 }
 
 .brand {
@@ -25,7 +213,34 @@
   align-items: center;
   gap: 28px;
   text-align: center;
-  padding: 64px 16px 48px;
+  padding: 48px 16px 56px;
+}
+
+.mainHeader {
+  width: min(720px, 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebarToggle {
+  background: #11131a;
+  color: #e2e8f0;
+  border: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebarToggle:hover {
+  background: #1a1d28;
+  color: #f8fafc;
+}
+
+.sidebarToggle svg {
+  pointer-events: none;
 }
 
 .greeting {
@@ -51,7 +266,18 @@
   display: block;
 }
 
+.queryInputRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
 .textareaRoot {
+  flex: 1;
+  display: flex;
+}
+
+.textareaRoot > div {
   flex: 1;
 }
 
@@ -77,10 +303,64 @@
   display: none;
 }
 
+.askAction {
+  background: #2563eb;
+  color: #fff;
+  transition: background 140ms ease, color 140ms ease, opacity 140ms ease;
+}
+
+.askAction:hover:not(:disabled) {
+  background: #1e3a8a;
+  color: #fff;
+}
+
+.askAction:disabled {
+  background: rgba(37, 99, 235, 0.35);
+  color: rgba(226, 232, 240, 0.7);
+  cursor: not-allowed;
+}
+
 .attachments {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.uploadedSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uploadedHeading {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.uploadedList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uploadedChip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: rgba(30, 41, 59, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5f5;
+}
+
+.uploadedChipLabel {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .attachment {
@@ -216,30 +496,31 @@
   white-space: pre-wrap;
 }
 
-@media (max-width: 640px) {
-  .topBar {
-    padding: 16px 20px;
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 20;
+    height: 100%;
+    box-shadow: 0 20px 60px rgba(2, 6, 23, 0.75);
+    transform: translateX(-100%);
+  }
+
+  .sidebarExpanded {
+    width: 260px;
+    transform: translateX(0);
+  }
+
+  .sidebarCollapsed {
+    width: 0;
+    transform: translateX(-110%);
+  }
+
+  .page {
+    margin-left: 0;
   }
 
   .main {
-    padding: 40px 12px 32px;
-  }
-
-  .greeting {
-    font-size: 32px;
-  }
-
-  .queryCard {
-    padding: 22px;
-    border-radius: 24px;
-  }
-
-  .queryControls {
-    justify-content: flex-start;
-    gap: 12px;
-  }
-
-  .uploadButton {
-    padding-inline: 20px;
+    padding: 40px 12px 48px;
   }
 }
