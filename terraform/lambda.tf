@@ -7,6 +7,12 @@ data "archive_file" "upload_url_zip" {
   output_path = "${path.module}/build/get_upload_url.zip"
 }
 
+data "archive_file" "create_session_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../backend/lambdas/create_session"
+  output_path = "${path.module}/build/create_session.zip"
+}
+
 data "archive_file" "ingest_zip" {
   type        = "zip"
   source_dir  = "${path.root}/../backend/lambdas/ingest"
@@ -25,6 +31,33 @@ resource "aws_lambda_function" "get_upload_url" {
   handler       = "main.handler"
   runtime       = "python3.11"
   filename      = data.archive_file.upload_url_zip.output_path
+  timeout       = 10
+  memory_size   = 256
+  architectures = ["x86_64"]
+
+  layers = [
+    aws_lambda_layer_version.faiss_deps_layer.arn,
+    aws_lambda_layer_version.other_deps_layer.arn,
+    aws_lambda_layer_version.code_layer.arn,
+  ]
+
+  environment {
+    variables = {
+      BUCKET            = aws_s3_bucket.docs.bucket
+      NAMESPACE         = local.namespace
+      OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
+      EMBED_MODEL       = local.embed_model
+      CHAT_MODEL        = local.chat_model
+    }
+  }
+}
+
+resource "aws_lambda_function" "create_session" {
+  function_name = "${local.project_name}-create-session"
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "main.handler"
+  runtime       = "python3.11"
+  filename      = data.archive_file.create_session_zip.output_path
   timeout       = 10
   memory_size   = 256
   architectures = ["x86_64"]

@@ -11,11 +11,16 @@ resource "aws_apigatewayv2_api" "http_api" {
       "http://localhost:3000",
       "https://bidayx9gga.execute-api.us-east-1.amazonaws.com" # optional
     ]
-    allow_methods = ["POST", "OPTIONS"]
-    allow_headers = ["content-type", "authorization"]
+    allow_methods  = ["POST", "OPTIONS"]
+    allow_headers  = ["content-type", "authorization"]
     expose_headers = ["content-type"]
     max_age        = 3600
   }
+}
+
+resource "aws_cloudwatch_log_group" "http_api_access" {
+  name              = "/aws/apigateway/${local.project_name}-http-access"
+  retention_in_days = 14
 }
 
 # integrating with backend/lambda function
@@ -27,6 +32,14 @@ resource "aws_apigatewayv2_integration" "upload_url" {
   integration_uri        = aws_lambda_function.get_upload_url.invoke_arn # address for the lambda function
   integration_method     = "POST"                                        # always POST for lambda
   payload_format_version = "2.0"                                         # new simpler version format 
+}
+
+resource "aws_apigatewayv2_integration" "create_session" {
+  api_id                 = aws_apigatewayv2_api.http_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.create_session.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
 }
 
 # process uploaded docs, build search index
@@ -55,6 +68,12 @@ resource "aws_apigatewayv2_route" "route_upload_url" {
   target    = "integrations/${aws_apigatewayv2_integration.upload_url.id}" # points to integration or which lambda to call
 }
 
+resource "aws_apigatewayv2_route" "route_create_session" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /sessions"
+  target    = "integrations/${aws_apigatewayv2_integration.create_session.id}"
+}
+
 resource "aws_apigatewayv2_route" "route_ingest" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /ingest"
@@ -74,6 +93,23 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default" # default stage name
   auto_deploy = true       # auto deploys changes when routes are updated
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.http_api_access.arn
+    format = jsonencode({
+      requestId         : "$context.requestId",
+      requestTime       : "$context.requestTime",
+      httpMethod        : "$context.httpMethod",
+      routeKey          : "$context.routeKey",
+      status            : "$context.status",
+      integrationStatus : "$context.integrationStatus",
+      errorMessage      : "$context.error.message",
+      responseLatency   : "$context.responseLatency",
+      ip                : "$context.identity.sourceIp",
+      userAgent         : "$context.identity.userAgent",
+      protocol          : "$context.protocol"
+    })
+  }
 }
 
 # lambda permission/security
@@ -85,6 +121,14 @@ resource "aws_lambda_permission" "apigw_upload_url" {
   action        = "lambda:InvokeFunction" # permission to call the function
   function_name = aws_lambda_function.get_upload_url.function_name
   principal     = "apigateway.amazonaws.com" # API gateway service
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "apigw_create_session" {
+  statement_id  = "AllowAPIGatewayInvokeCreateSession"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.create_session.function_name
+  principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 

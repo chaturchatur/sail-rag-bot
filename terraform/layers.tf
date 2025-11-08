@@ -4,8 +4,8 @@
 # FAISS index loading will be faster
 
 locals {
-  code_layer_zip      = "${path.module}/build/code_layer.zip"
-  faiss_layer_zip     = "${path.module}/build/faiss_layer.zip"
+  code_layer_zip       = "${path.module}/build/code_layer.zip"
+  faiss_layer_zip      = "${path.module}/build/faiss_layer.zip"
   other_deps_layer_zip = "${path.module}/build/other_deps_layer.zip"
 }
 

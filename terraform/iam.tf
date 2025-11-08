@@ -30,7 +30,7 @@ data "aws_iam_policy_document" "lambda_inline" {
   # secret manager to read openAI keys
   statement {
     effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]           # access to read secret value
+    actions   = ["secretsmanager:GetSecretValue"]          # access to read secret value
     resources = [aws_secretsmanager_secret.openai_api.arn] # references openAI key
   }
 
