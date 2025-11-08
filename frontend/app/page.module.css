@@ -1,141 +1,191 @@
 .page {
-  --background: #fafafa;
-  --foreground: #fff;
-
-  --text-primary: #000;
-  --text-secondary: #666;
-
-  --button-primary-hover: #383838;
-  --button-secondary-hover: #f2f2f2;
-  --button-secondary-border: #ebebeb;
-
-  display: flex;
   min-height: 100vh;
+  background: #0b0d12;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topBar {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  font-family: var(--font-geist-sans);
-  background-color: var(--background);
+  padding: 20px 15px;
+}
+
+.brand {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #a1a1a1;
 }
 
 .main {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
-  max-width: 800px;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: space-between;
-  background-color: var(--foreground);
-  padding: 120px 60px;
-}
-
-.intro {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  gap: 24px;
-}
-
-.intro h1 {
-  max-width: 320px;
-  font-size: 40px;
-  font-weight: 600;
-  line-height: 48px;
-  letter-spacing: -2.4px;
-  text-wrap: balance;
-  color: var(--text-primary);
-}
-
-.intro p {
-  max-width: 440px;
-  font-size: 18px;
-  line-height: 32px;
-  text-wrap: balance;
-  color: var(--text-secondary);
-}
-
-.intro a {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.ctas {
-  display: flex;
-  flex-direction: row;
-  width: 100%;
-  max-width: 440px;
-  gap: 16px;
-  font-size: 14px;
-}
-
-.ctas a {
-  display: flex;
-  justify-content: center;
   align-items: center;
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 128px;
-  border: 1px solid transparent;
-  transition: 0.2s;
-  cursor: pointer;
-  width: fit-content;
-  font-weight: 500;
+  gap: 28px;
+  text-align: center;
+  padding: 64px 16px 48px;
 }
 
-a.primary {
-  background: var(--text-primary);
-  color: var(--background);
+.greeting {
+  font-size: 2rem;
+  font-weight: 600;
+  color: #5b8dff;
+}
+
+.queryCard {
+  width: min(720px, 100%);
+  background: #15171c;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 32px;
+  padding: 28px;
+  box-shadow: 0 36px 90px -70px rgba(2, 6, 23, 0.85);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  text-align: left;
+}
+
+.queryBody {
+  display: block;
+}
+
+.textareaRoot {
+  flex: 1;
+}
+
+.textarea {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  font-size: 1rem;
+  color: #e5e7eb;
+}
+
+.textarea:focus {
+  border: none;
+  box-shadow: none;
+}
+
+.textarea::placeholder {
+  color: rgba(148, 163, 184, 0.6);
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.attachment {
+  display: flex;
+  align-items: center;
   gap: 8px;
+  padding: 8px 14px;
+  border-radius: 16px;
+  background: #1f2228;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #e2e8f0;
 }
 
-a.secondary {
-  border-color: var(--button-secondary-border);
+.attachmentLabel {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Enable hover only on non-touch devices */
-@media (hover: hover) and (pointer: fine) {
-  a.primary:hover {
-    background: var(--button-primary-hover);
-    border-color: transparent;
+.removeAttachment {
+  color: #94a3b8;
+}
+
+.removeAttachment:hover {
+  color: #fca5a5;
+  background: transparent;
+}
+
+.queryControls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.attachButton {
+  background: rgba(148, 163, 184, 0.1);
+  color: #e2e8f0;
+  font-weight: 500;
+  padding-inline: 20px;
+}
+
+.attachButton:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: #f8fafc;
+}
+
+.uploadButton {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 600;
+  padding-inline: 24px;
+}
+
+.uploadButton:hover {
+  background: #1e3a8a;
+}
+
+.statusCard,
+.errorCard {
+  width: min(720px, 100%);
+  border-radius: 18px;
+  padding: 16px 20px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.statusCard {
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  background: rgba(37, 99, 235, 0.12);
+  color: #bfdbfe;
+}
+
+.errorCard {
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  background: rgba(127, 29, 29, 0.45);
+  color: #fecaca;
+}
+
+@media (max-width: 640px) {
+  .topBar {
+    padding: 16px 20px;
   }
 
-  a.secondary:hover {
-    background: var(--button-secondary-hover);
-    border-color: transparent;
-  }
-}
-
-@media (max-width: 600px) {
   .main {
-    padding: 48px 24px;
+    padding: 40px 12px 32px;
   }
 
-  .intro {
-    gap: 16px;
-  }
-
-  .intro h1 {
+  .greeting {
     font-size: 32px;
-    line-height: 40px;
-    letter-spacing: -1.92px;
+  }
+
+  .queryCard {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .queryControls {
+    justify-content: flex-start;
+    gap: 12px;
+  }
+
+  .uploadButton {
+    padding-inline: 20px;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  .logo {
-    filter: invert();
-  }
-
-  .page {
-    --background: #000;
-    --foreground: #000;
-
-    --text-primary: #ededed;
-    --text-secondary: #999;
-
-    --button-primary-hover: #ccc;
-    --button-secondary-hover: #1a1a1a;
-    --button-secondary-border: #1a1a1a;
-  }
-}

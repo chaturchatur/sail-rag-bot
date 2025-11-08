@@ -1,19 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { ActionIcon, Button, Loader, Text, Textarea } from "@mantine/core";
 import {
-  Alert,
-  Button,
-  Container,
-  Group,
-  List,
-  Loader,
-  Paper,
-  Stack,
-  Text,
-  Title,
-} from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+  IconAlertCircle,
+  IconFileText,
+  IconPlus,
+  IconUpload,
+  IconX,
+} from "@tabler/icons-react";
+import classes from "./page.module.css";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -25,15 +21,68 @@ type UploadUrlResponse = {
 
 export default function HomePage() {
   const [files, setFiles] = useState<File[]>([]);
+  const [message, setMessage] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const handleFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files ? Array.from(event.target.files) : [];
-    setFiles(selected);
+
+    if (selected.length === 0) {
+      return;
+    }
+
+    setFiles((prev) => {
+      const existingKeys = new Set(
+        prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`)
+      );
+      const merged = [...prev];
+
+      selected.forEach((file) => {
+        const key = `${file.name}-${file.size}-${file.lastModified}`;
+        if (!existingKeys.has(key)) {
+          merged.push(file);
+          existingKeys.add(key);
+        }
+      });
+
+      return merged;
+    });
+
     setStatus(null);
     setError(null);
+    event.target.value = "";
+  };
+
+  const handleRemoveFile = (fileToRemove: File) => {
+    setFiles((prev) =>
+      prev.filter(
+        (file) =>
+          !(
+            file.name === fileToRemove.name &&
+            file.size === fileToRemove.size &&
+            file.lastModified === fileToRemove.lastModified
+          )
+      )
+    );
+  };
+
+  const handleOpenFilePicker = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleTextareaKeyDown = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>
+  ) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+
+      if (!isUploading) {
+        void handleUpload();
+      }
+    }
   };
 
   const handleUpload = async () => {
@@ -101,10 +150,11 @@ export default function HomePage() {
 
       const ingestJson = await ingestRes.json();
       setStatus(`Ingest complete: ${JSON.stringify(ingestJson)}`);
+      setMessage("");
     } catch (err) {
-      const message =
+      const details =
         err instanceof Error ? err.message : "Unexpected error during upload.";
-      setError(message);
+      setError(details);
       setStatus(null);
     } finally {
       setIsUploading(false);
@@ -112,49 +162,104 @@ export default function HomePage() {
   };
 
   return (
-    <Container size="sm" py="xl">
-      <Stack gap="lg">
-        <Title order={2}>Document Uploader</Title>
-        <Paper withBorder p="lg" radius="md">
-          <Stack gap="md">
-            <Text>Select one or more .txt files to upload:</Text>
-            <input
-              type="file"
-              accept=".txt"
-              multiple
-              onChange={handleFileSelection}
+    <div className={classes.page}>
+      <header className={classes.topBar}>
+        <Text className={classes.brand}>Sail</Text>
+      </header>
+
+      <main className={classes.main}>
+        <Text className={classes.greeting}>Hello, Ritvik</Text>
+
+        <div className={classes.queryCard}>
+          <div className={classes.queryBody}>
+            <Textarea
+              placeholder="Ask Sail"
+              autosize
+              minRows={1}
+              maxRows={4}
+              value={message}
+              onChange={(event) => setMessage(event.currentTarget.value)}
+              onKeyDown={handleTextareaKeyDown}
+              classNames={{
+                root: classes.textareaRoot,
+                input: classes.textarea,
+              }}
             />
-            {files.length > 0 && (
-              <List size="sm" withPadding>
-                {files.map((file) => (
-                  <List.Item key={file.name}>{file.name}</List.Item>
-                ))}
-              </List>
-            )}
-            <Group justify="flex-start">
-              <Button
-                onClick={handleUpload}
-                disabled={isUploading || files.length === 0}
-              >
-                Upload &amp; Ingest
-              </Button>
-              {isUploading && <Loader size="sm" />}
-            </Group>
-          </Stack>
-        </Paper>
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt"
+            multiple
+            className={classes.hiddenInput}
+            onChange={handleFileSelection}
+          />
+
+          {files.length > 0 && (
+            <div className={classes.attachments}>
+              {files.map((file) => (
+                <div
+                  className={classes.attachment}
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
+                >
+                  <IconFileText size={14} />
+                  <Text size="xs" className={classes.attachmentLabel}>
+                    {file.name}
+                  </Text>
+                  <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    className={classes.removeAttachment}
+                    onClick={() => handleRemoveFile(file)}
+                    aria-label={`Remove ${file.name}`}
+                  >
+                    <IconX size={12} />
+                  </ActionIcon>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className={classes.queryControls}>
+            <Button
+              radius="xl"
+              variant="subtle"
+              className={classes.attachButton}
+              leftSection={<IconPlus size={16} />}
+              onClick={handleOpenFilePicker}
+            >
+              Attach files
+            </Button>
+
+            <Button
+              radius="xl"
+              className={classes.uploadButton}
+              onClick={() => void handleUpload()}
+              disabled={isUploading || files.length === 0}
+              leftSection={
+                isUploading ? <Loader size="xs" /> : <IconUpload size={16} />
+              }
+            >
+              {isUploading ? "Uploading..." : "Upload"}
+            </Button>
+          </div>
+        </div>
 
         {status && (
-          <Alert color="blue" title="Status">
-            {status}
-          </Alert>
+          <div className={classes.statusCard}>
+            {isUploading && <Loader size="sm" />}
+            <Text size="sm">{status}</Text>
+          </div>
         )}
 
         {error && (
-          <Alert color="red" title="Error" icon={<IconAlertCircle size={16} />}>
-            {error}
-          </Alert>
+          <div className={classes.errorCard}>
+            <IconAlertCircle size={16} />
+            <Text size="sm">{error}</Text>
+          </div>
         )}
-      </Stack>
-    </Container>
+      </main>
+    </div>
   );
 }
