@@ -1,55 +1,90 @@
-# backend/lambdas/query/main.py
+import json
+import os
+import tempfile
 
-import os, json, tempfile
 import numpy as np
-from backend.shared import download_object, load_index, load_metadata, embed_texts, search_index, chat
+
+from backend.shared import (
+    chat,
+    download_object,
+    embed_texts,
+    if_object,
+    load_index,
+    load_metadata,
+    search_index,
+)
 
 BUCKET = os.environ["BUCKET"]
 NAMESPACE = os.environ.get("NAMESPACE", "default")
-INDEX_PREFIX = f"{NAMESPACE}/index"
+SESSION_PREFIX = f"{NAMESPACE}/sessions"
+
 SYSTEM_PROMPT = (
     "You are a helpful assistant answering questions about the provided documents. "
     "Use only the supplied context. If you cannot find the answer in the context, say you do not know."
 )
 
-# warm cache global vars
-_index = None
-_meta = None
+_cache = {}
 
-# check if _index, _meta are loaded (return warm path)
-def _load():
-    global _index, _meta
-    # check if cache is warm
-    if _index is not None and _meta is not None:
-        return
-    # load two temp files for index and metadata
+
+def _load(session_id: str):
+    cached = _cache.get(session_id)
+    if cached:
+        return cached
+
+    index_key = f"{SESSION_PREFIX}/{session_id}/index/faiss.index"
+    meta_key = f"{SESSION_PREFIX}/{session_id}/index/meta.json"
+
     with tempfile.NamedTemporaryFile(delete=False) as idxf, tempfile.NamedTemporaryFile(delete=False) as mf:
-        download_object(BUCKET, f"{INDEX_PREFIX}/faiss.index", idxf.name)   # pull index file from s3
-        download_object(BUCKET, f"{INDEX_PREFIX}/meta.json", mf.name)       # pull metadata file from s3
-        _index = load_index(idxf.name)                                      # load faiss index 
-        _meta = load_metadata(mf.name)                                      # load metadata 
+        download_object(BUCKET, index_key, idxf.name)
+        download_object(BUCKET, meta_key, mf.name)
+        index = load_index(idxf.name)
+        meta = load_metadata(mf.name)
+
+    _cache[session_id] = (index, meta)
+    return index, meta
+
 
 def handler(event, context):
     body = json.loads(event.get("body") or "{}")
-    question = body.get("question", "") # get the question/query
-    k = int(body.get("k", 5))  
-    # if no question return 400         
-    if not question:
-        return {"statusCode": 400, "body": json.dumps({"error": "question required"})}
+    question = body.get("question", "")
+    session_id = body.get("sessionId")
 
-    # call load to warm cache (_index/_meta are ready)
-    _load() 
-    
-    qemb = np.array(embed_texts([question])[0], dtype="float32")    # get embedding for question
-    dists, inds = search_index(_index, qemb, k=k)                   # cosine similarity search (return top k)
-    
-    contexts = [] 
+    if not session_id:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "sessionId required"}),
+        }
+
+    if not question:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({"error": "question required"}),
+        }
+
+    index_key = f"{SESSION_PREFIX}/{session_id}/index/faiss.index"
+    meta_key = f"{SESSION_PREFIX}/{session_id}/index/meta.json"
+
+    if not if_object(BUCKET, index_key) or not if_object(BUCKET, meta_key):
+        return {
+            "statusCode": 404,
+            "body": json.dumps(
+                {
+                    "error": "No index found for session. Upload and ingest documents first.",
+                    "sessionId": session_id,
+                }
+            ),
+        }
+
+    index, meta = _load(session_id)
+
+    qemb = np.array(embed_texts([question])[0], dtype="float32")
+    dists, inds = search_index(index, qemb, k=int(body.get("k", 5)))
+
+    contexts = []
     chunks = []
-                                                       
-    # build sources for each (score, idx) 
-    # looks up _meta[idx] and returns minimal citation info
+
     for score, idx in zip(dists, inds):
-        md = _meta.get(str(int(idx)), {})
+        md = meta.get(str(int(idx)), {})
         if not md:
             continue
 
@@ -88,6 +123,7 @@ def handler(event, context):
             {
                 "answer": answer,
                 "chunks": chunks,
+                "sessionId": session_id,
             }
         ),
     }
