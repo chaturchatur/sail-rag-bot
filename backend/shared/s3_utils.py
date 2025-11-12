@@ -89,3 +89,15 @@ def if_object(bucket: str, key: str):
         if e.response['Error']['Code'] == '404':
             return False
         raise
+
+# returns the ETag for an S3 object so callers can detect updates
+def get_etag(bucket: str, key: str):
+    s3_client = get_s3_client()
+
+    try:
+        response = s3_client.head_object(Bucket=bucket, Key=key)
+        return response.get('ETag')
+    except s3_client.exceptions.ClientError as e:
+        if e.response['Error']['Code'] == '404':
+            return None
+        raise

@@ -9,6 +9,7 @@ from .s3_utils import (
     upload_file,
     list_objects,
     if_object,
+    get_etag,
 )
 
 from .openai_utils import (
@@ -37,6 +38,12 @@ from .faiss_utils import (
     merge_indexes,
 )
 
+from .message_utils import (
+    save_message,
+    get_messages,
+    openai_messages,
+)
+
 __all__ = [
     # s3_utils
     "get_s3_client",
@@ -45,6 +52,7 @@ __all__ = [
     "upload_file",
     "list_objects",
     "if_object",
+    "get_etag",
     # openai_utils
     "get_openai_key",
     "get_openai_client",
@@ -65,4 +73,8 @@ __all__ = [
     "save_metadata",
     "load_metadata",
     "merge_indexes",
+    # message_utils
+    "save_message",
+    "get_messages",
+    "openai_messages",
 ]
