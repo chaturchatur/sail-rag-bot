@@ -8,10 +8,9 @@ resource "aws_apigatewayv2_api" "http_api" {
   # cors configuration
   cors_configuration {
     allow_origins = [
-      "http://localhost:3000",
-      "https://bidayx9gga.execute-api.us-east-1.amazonaws.com" # optional
+      "http://localhost:3000"
     ]
-    allow_methods  = ["POST", "OPTIONS"]
+    allow_methods  = ["GET", "POST", "OPTIONS"]
     allow_headers  = ["content-type", "authorization"]
     expose_headers = ["content-type"]
     max_age        = 3600
@@ -60,6 +59,15 @@ resource "aws_apigatewayv2_integration" "query" {
   payload_format_version = "2.0"
 }
 
+# retrieve conversation history for a session
+resource "aws_apigatewayv2_integration" "get_messages" {
+  api_id                 = aws_apigatewayv2_api.http_api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.get_messages.invoke_arn
+  integration_method     = "POST"
+  payload_format_version = "2.0"
+}
+
 # route/ url mapping
 # maps HTTP requests to integrations
 resource "aws_apigatewayv2_route" "route_upload_url" {
@@ -84,6 +92,12 @@ resource "aws_apigatewayv2_route" "route_query" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /query"
   target    = "integrations/${aws_apigatewayv2_integration.query.id}"
+}
+
+resource "aws_apigatewayv2_route" "route_get_messages" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "GET /sessions/{sessionId}/messages"
+  target    = "integrations/${aws_apigatewayv2_integration.get_messages.id}"
 }
 
 # stage/ deployment environment
@@ -144,6 +158,14 @@ resource "aws_lambda_permission" "apigw_query" {
   statement_id  = "AllowAPIGatewayInvokeQuery"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.query.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+resource "aws_lambda_permission" "apigw_get_messages" {
+  statement_id  = "AllowAPIGatewayInvokeGetMessages"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.get_messages.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
