@@ -12,6 +12,10 @@ from backend.shared import (
     load_index,
     load_metadata,
     search_index,
+    get_messages,
+    save_message,
+    openai_messages,
+    get_etag
 )
 
 BUCKET = os.environ["BUCKET"]
@@ -27,12 +31,17 @@ _cache = {}
 
 
 def _load(session_id: str):
-    cached = _cache.get(session_id)
-    if cached:
-        return cached
-
     index_key = f"{SESSION_PREFIX}/{session_id}/index/faiss.index"
     meta_key = f"{SESSION_PREFIX}/{session_id}/index/meta.json"
+    etag = get_etag(BUCKET, index_key)
+
+    cached = _cache.get(session_id)
+    if cached:
+        cached_etag = cached.get("etag")
+        if etag and cached_etag == etag:
+            return cached["index"], cached["meta"]
+        if not etag and cached_etag is None:
+            return cached["index"], cached["meta"]
 
     with tempfile.NamedTemporaryFile(delete=False) as idxf, tempfile.NamedTemporaryFile(delete=False) as mf:
         download_object(BUCKET, index_key, idxf.name)
@@ -40,7 +49,7 @@ def _load(session_id: str):
         index = load_index(idxf.name)
         meta = load_metadata(mf.name)
 
-    _cache[session_id] = (index, meta)
+    _cache[session_id] = {"etag": etag, "index": index, "meta": meta}
     return index, meta
 
 
@@ -75,8 +84,13 @@ def handler(event, context):
             ),
         }
 
+    # Load conversation history from S3
+    conversation_history = get_messages(BUCKET, session_id, NAMESPACE)
+
+    # Load index for semantic search
     index, meta = _load(session_id)
 
+    # Embed question and search for relevant chunks
     qemb = np.array(embed_texts([question])[0], dtype="float32")
     dists, inds = search_index(index, qemb, k=int(body.get("k", 5)))
 
@@ -105,17 +119,43 @@ def handler(event, context):
             }
         )
 
+    # Build question with context for current turn
     if contexts:
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {
-                "role": "user",
-                "content": f"Question: {question}\n\nContext:\n" + "\n\n".join(contexts),
-            },
-        ]
+        current_question = f"Question: {question}\n\nContext:\n" + "\n\n".join(contexts)
+    else:
+        current_question = question
+
+    # Save user message to S3
+    save_message(
+        bucket=BUCKET,
+        session_id=session_id,
+        role="user",
+        content=question,
+        namespace=NAMESPACE
+    )
+
+    # Build OpenAI messages with conversation history + new question
+    messages = openai_messages(conversation_history, SYSTEM_PROMPT)
+    messages.append({"role": "user", "content": current_question})
+
+    # Get answer from OpenAI
+    if contexts:
         answer = chat(messages, temperature=0)
     else:
         answer = "I could not find relevant context in the indexed documents."
+
+    # Save assistant response to S3
+    save_message(
+        bucket=BUCKET,
+        session_id=session_id,
+        role="assistant",
+        content=answer,
+        chunks=chunks,
+        namespace=NAMESPACE
+    )
+
+    # Get updated conversation history (includes the messages we just saved)
+    updated_history = get_messages(BUCKET, session_id, NAMESPACE)
 
     return {
         "statusCode": 200,
@@ -124,6 +164,7 @@ def handler(event, context):
                 "answer": answer,
                 "chunks": chunks,
                 "sessionId": session_id,
+                "messages": updated_history,  # Return full conversation history
             }
         ),
     }
