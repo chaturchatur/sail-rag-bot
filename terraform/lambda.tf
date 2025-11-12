@@ -25,6 +25,13 @@ data "archive_file" "query_zip" {
   output_path = "${path.module}/build/query.zip"
 }
 
+# Archive file for get_messages lambda
+data "archive_file" "get_messages_zip" {
+  type        = "zip"
+  source_dir  = "${path.root}/../backend/lambdas/get_messages"
+  output_path = "${path.module}/build/get_messages.zip"
+}
+
 resource "aws_lambda_function" "get_upload_url" {
   function_name = "${local.project_name}-get-upload-url"
   role          = aws_iam_role.lambda_exec.arn
@@ -114,6 +121,34 @@ resource "aws_lambda_function" "query" {
   filename      = data.archive_file.query_zip.output_path
   timeout       = 60
   memory_size   = 1024
+  architectures = ["x86_64"]
+
+  layers = [
+    aws_lambda_layer_version.faiss_deps_layer.arn,
+    aws_lambda_layer_version.other_deps_layer.arn,
+    aws_lambda_layer_version.code_layer.arn,
+  ]
+
+  environment {
+    variables = {
+      BUCKET            = aws_s3_bucket.docs.bucket
+      NAMESPACE         = local.namespace
+      OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
+      EMBED_MODEL       = local.embed_model
+      CHAT_MODEL        = local.chat_model
+    }
+  }
+}
+
+# Lambda function for retrieving conversation history
+resource "aws_lambda_function" "get_messages" {
+  function_name = "${local.project_name}-get-messages"
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "main.handler"
+  runtime       = "python3.11"
+  filename      = data.archive_file.get_messages_zip.output_path
+  timeout       = 10
+  memory_size   = 256
   architectures = ["x86_64"]
 
   layers = [
