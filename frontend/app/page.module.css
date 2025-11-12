@@ -496,6 +496,115 @@
   white-space: pre-wrap;
 }
 
+/* Conversation container */
+.conversationContainer {
+  width: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+/* User message styles */
+.userMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.userMessage .messageContent {
+  background: #2563eb;
+  color: #ffffff;
+  padding: 16px 20px;
+  border-radius: 20px 20px 4px 20px;
+  max-width: 85%;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.userMessage .messageText {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #ffffff;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Assistant message styles */
+.assistantMessage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.assistantMessage .messageContent {
+  background: #15171c;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #e5e7eb;
+  padding: 16px 20px;
+  border-radius: 20px 20px 20px 4px;
+  max-width: 85%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.assistantMessage .messageText {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #e5e7eb;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Typing indicator */
+.typingText {
+  font-size: 0.95rem;
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* Message sources */
+.messageSources {
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 8px;
+}
+
+.sourcesHeading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.messageSources .sourceItem {
+  background: #1f2228;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.messageSources .sourceLabel {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  margin-bottom: 6px;
+}
+
+.messageSources .sourceText {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+  white-space: pre-wrap;
+}
+
 @media (max-width: 900px) {
   .sidebar {
     position: fixed;
@@ -522,5 +631,23 @@
 
   .main {
     padding: 40px 12px 48px;
+  }
+
+  .conversationContainer {
+    width: 100%;
+  }
+
+  .userMessage .messageContent,
+  .assistantMessage .messageContent {
+    max-width: 90%;
+  }
+
+  .messageSources {
+    max-width: 90%;
+  }
+
+  .queryCard {
+    border-radius: 24px;
+    padding: 20px;
   }
 }

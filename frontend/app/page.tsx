@@ -28,9 +28,18 @@ type QueryChunk = {
   score?: number;
 };
 
+// Message type for conversation history
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  timestamp: string;
+  chunks?: QueryChunk[];
+};
+
 type QueryResponse = {
   answer: string;
   chunks: QueryChunk[];
+  messages?: Message[];
 };
 
 type SessionMetadata = {
@@ -47,6 +56,12 @@ type Session = {
 };
 
 type CreateSessionResponse = Session;
+
+type GetMessagesResponse = {
+  sessionId: string;
+  messages: Message[];
+  count: number;
+};
 
 const formatSessionLabel = (session: Session | null) => {
   if (!session) {
@@ -75,13 +90,19 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [hasSessionAttempted, setHasSessionAttempted] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [chunks, setChunks] = useState<QueryChunk[]>([]);
+
+  // NEW: Store messages per session
+  const [sessionMessages, setSessionMessages] = useState<
+    Record<string, Message[]>
+  >({});
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const hasSession = activeSessionId !== null;
   const activeSession = hasSession
@@ -90,12 +111,68 @@ export default function HomePage() {
   const uploadedFiles = activeSession
     ? sessionUploads[activeSession.sessionId] ?? []
     : [];
+
+  // Get messages for active session
+  const messages = activeSession
+    ? sessionMessages[activeSession.sessionId] ?? []
+    : [];
+
   const isUploadInProgress = isUploading || isQuerying;
   const isBusy = isUploadInProgress || isCreatingSession;
 
   const sidebarClassName = `${classes.sidebar} ${
     isSidebarOpen ? classes.sidebarExpanded : classes.sidebarCollapsed
   }`;
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Load messages from API
+  const loadMessages = useCallback(
+    async (sessionId: string) => {
+      if (!API_BASE_URL) {
+        return;
+      }
+
+      setIsLoadingMessages(true);
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/sessions/${sessionId}/messages`,
+          {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error(`Failed to load messages: ${res.statusText}`);
+        }
+
+        const data = (await res.json()) as GetMessagesResponse;
+
+        setSessionMessages((prev) => ({
+          ...prev,
+          [sessionId]: data.messages || [],
+        }));
+      } catch (err) {
+        console.error("Error loading messages:", err);
+        // Don't show error to user for message loading failures
+        // Just default to empty messages
+        setSessionMessages((prev) => ({
+          ...prev,
+          [sessionId]: [],
+        }));
+      } finally {
+        setIsLoadingMessages(false);
+      }
+    },
+    [API_BASE_URL]
+  );
 
   const createSession = useCallback(async () => {
     if (!API_BASE_URL) {
@@ -142,10 +219,15 @@ export default function HomePage() {
         }
         return { ...prev, [session.sessionId]: [] };
       });
+
+      // Initialize empty messages for new session
+      setSessionMessages((prev) => ({
+        ...prev,
+        [session.sessionId]: [],
+      }));
+
       setMessage("");
       setPendingFiles([]);
-      setAnswer(null);
-      setChunks([]);
       setStatus(`Created ${formatSessionLabel(session)}.`);
     } catch (err) {
       const details =
@@ -244,8 +326,6 @@ export default function HomePage() {
     setActiveSessionId(sessionId);
     setMessage("");
     setPendingFiles([]);
-    setAnswer(null);
-    setChunks([]);
     setError(null);
     setSessionUploads((prev) => {
       if (prev[sessionId]) {
@@ -253,6 +333,11 @@ export default function HomePage() {
       }
       return { ...prev, [sessionId]: [] };
     });
+
+    // Load messages if we haven't loaded them yet
+    if (!sessionMessages[sessionId]) {
+      void loadMessages(sessionId);
+    }
 
     if (session) {
       setStatus(`Switched to ${formatSessionLabel(session)}.`);
@@ -287,8 +372,6 @@ export default function HomePage() {
     setIsQuerying(true);
     setStatus(`Searching ${formatSessionLabel(session)}...`);
     setError(null);
-    setAnswer(null);
-    setChunks([]);
 
     try {
       const queryRes = await fetch(`${API_BASE_URL}/query`, {
@@ -312,15 +395,23 @@ export default function HomePage() {
       }
 
       const data = (await queryRes.json()) as QueryResponse;
-      setAnswer(data.answer ?? "");
-      setChunks(data.chunks ?? []);
+
+      // Update messages from response
+      if (data.messages && data.messages.length > 0) {
+        setSessionMessages((prev) => ({
+          ...prev,
+          [session.sessionId]: data.messages!,
+        }));
+      }
+
+      setStatus(null);
     } catch (err) {
       const details =
         err instanceof Error ? err.message : "Unexpected error while querying.";
       setError(details);
+      setStatus(null);
     } finally {
       setIsQuerying(false);
-      setStatus(null);
     }
   };
 
@@ -347,8 +438,21 @@ export default function HomePage() {
     const sessionLabel = formatSessionLabel(session);
 
     setError(null);
-    setAnswer(null);
-    setChunks([]);
+
+    // Immediately add user message to UI
+    const userMessage: Message = {
+      role: "user",
+      content: question,
+      timestamp: new Date().toISOString(),
+    };
+
+    setSessionMessages((prev) => ({
+      ...prev,
+      [session.sessionId]: [...(prev[session.sessionId] || []), userMessage],
+    }));
+
+    // Clear input immediately
+    setMessage("");
 
     if (pendingFiles.length > 0) {
       setIsUploading(true);
@@ -436,7 +540,6 @@ export default function HomePage() {
     }
 
     await runQuery(question, session);
-    setMessage("");
     setPendingFiles([]);
   };
 
@@ -530,10 +633,86 @@ export default function HomePage() {
         </header>
 
         <main className={classes.main}>
-          <div className={classes.mainHeader}>
-            <Text className={classes.greeting}>Hello, Ritvik</Text>
-          </div>
+          {messages.length === 0 && !isLoadingMessages && (
+            <div className={classes.mainHeader}>
+              <Text className={classes.greeting}>Hello, Ritvik</Text>
+            </div>
+          )}
 
+          {/* Conversation messages */}
+          {messages.length > 0 && (
+            <div className={classes.conversationContainer}>
+              {messages.map((msg, index) => (
+                <div
+                  key={`${msg.timestamp}-${index}`}
+                  className={
+                    msg.role === "user"
+                      ? classes.userMessage
+                      : classes.assistantMessage
+                  }
+                >
+                  <div className={classes.messageContent}>
+                    <Text className={classes.messageText}>{msg.content}</Text>
+                  </div>
+
+                  {/* Show sources for assistant messages */}
+                  {msg.role === "assistant" &&
+                    msg.chunks &&
+                    msg.chunks.length > 0 && (
+                      <div className={classes.messageSources}>
+                        <Text className={classes.sourcesHeading}>Sources</Text>
+                        {msg.chunks.map((chunk, chunkIndex) => {
+                          const metaParts = [
+                            chunk.source || "Unknown source",
+                            chunk.page !== null && chunk.page !== undefined
+                              ? `page ${chunk.page}`
+                              : null,
+                            typeof chunk.score === "number"
+                              ? `score ${chunk.score.toFixed(3)}`
+                              : null,
+                          ].filter(Boolean);
+
+                          return (
+                            <div
+                              key={`${chunk.source ?? "source"}-${chunkIndex}`}
+                              className={classes.sourceItem}
+                            >
+                              <Text className={classes.sourceLabel}>
+                                {metaParts.join(" • ")}
+                              </Text>
+                              <Text size="sm" className={classes.sourceText}>
+                                {chunk.text}
+                              </Text>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                </div>
+              ))}
+
+              {/* Typing indicator */}
+              {isQuerying && (
+                <div className={classes.assistantMessage}>
+                  <div className={classes.messageContent}>
+                    <Loader size="sm" />
+                    <Text className={classes.typingText}>Thinking...</Text>
+                  </div>
+                </div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+
+          {isLoadingMessages && (
+            <div className={classes.statusCard}>
+              <Loader size="sm" />
+              <Text size="sm">Loading conversation...</Text>
+            </div>
+          )}
+
+          {/* Query input card - fixed at bottom */}
           <div className={classes.queryCard}>
             <div className={classes.queryBody}>
               <div className={classes.queryInputRow}>
@@ -659,44 +838,6 @@ export default function HomePage() {
             <div className={classes.errorCard}>
               <IconAlertCircle size={16} />
               <Text size="sm">{error}</Text>
-            </div>
-          )}
-
-          {answer && (
-            <div className={classes.answerCard}>
-              <Text className={classes.answerHeading}>Answer</Text>
-              <Text className={classes.answerText}>{answer}</Text>
-
-              {chunks.length > 0 && (
-                <div className={classes.sourceList}>
-                  <Text className={classes.answerHeading}>Sources</Text>
-                  {chunks.map((chunk, index) => {
-                    const metaParts = [
-                      chunk.source || "Unknown source",
-                      chunk.page !== null && chunk.page !== undefined
-                        ? `page ${chunk.page}`
-                        : null,
-                      typeof chunk.score === "number"
-                        ? `score ${chunk.score.toFixed(3)}`
-                        : null,
-                    ].filter(Boolean);
-
-                    return (
-                      <div
-                        key={`${chunk.source ?? "source"}-${index}`}
-                        className={classes.sourceItem}
-                      >
-                        <Text className={classes.sourceLabel}>
-                          {metaParts.join(" • ")}
-                        </Text>
-                        <Text size="sm" className={classes.sourceText}>
-                          {chunk.text}
-                        </Text>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           )}
         </main>
