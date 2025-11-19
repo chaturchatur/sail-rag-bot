@@ -9,7 +9,7 @@ from .s3_utils import (
     upload_file,
     list_objects,
     if_object,
-    get_etag,
+    get_etag
 )
 
 from .openai_utils import (
@@ -36,6 +36,11 @@ from .faiss_utils import (
     save_metadata,
     load_metadata,
     merge_indexes,
+)
+
+from .dynamodb_utils import (
+    get_resource,
+    get_table,
 )
 
 from .message_utils import (
@@ -77,4 +82,7 @@ __all__ = [
     "save_message",
     "get_messages",
     "openai_messages",
+    # dynamodb_utils
+    "get_resource",
+    "get_table",
 ]

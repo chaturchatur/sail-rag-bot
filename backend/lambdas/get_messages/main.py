@@ -5,6 +5,7 @@ from backend.shared import get_messages
 
 BUCKET = os.environ["BUCKET"]
 NAMESPACE = os.environ.get("NAMESPACE", "default")
+MESSAGES_TABLE = os.environ["MESSAGES_TABLE"]
 
 def handler(event, context):
     """
@@ -25,7 +26,7 @@ def handler(event, context):
     
     try:
         # Retrieve conversation history from S3
-        messages = get_messages(BUCKET, session_id, NAMESPACE)
+        messages = get_messages(BUCKET, session_id, NAMESPACE, table_name=MESSAGES_TABLE)
         
         return {
             "statusCode": 200,

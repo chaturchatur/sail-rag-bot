@@ -55,6 +55,7 @@ resource "aws_lambda_function" "get_upload_url" {
       OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
       EMBED_MODEL       = local.embed_model
       CHAT_MODEL        = local.chat_model
+      MESSAGES_TABLE    = aws_dynamodb_table.messages.name
     }
   }
 }
@@ -82,6 +83,7 @@ resource "aws_lambda_function" "create_session" {
       OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
       EMBED_MODEL       = local.embed_model
       CHAT_MODEL        = local.chat_model
+      MESSAGES_TABLE    = aws_dynamodb_table.messages.name
     }
   }
 }
@@ -109,6 +111,7 @@ resource "aws_lambda_function" "ingest" {
       OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
       EMBED_MODEL       = local.embed_model
       CHAT_MODEL        = local.chat_model
+      MESSAGES_TABLE    = aws_dynamodb_table.messages.name
     }
   }
 }
@@ -136,6 +139,7 @@ resource "aws_lambda_function" "query" {
       OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
       EMBED_MODEL       = local.embed_model
       CHAT_MODEL        = local.chat_model
+      MESSAGES_TABLE    = aws_dynamodb_table.messages.name
     }
   }
 }
@@ -164,6 +168,7 @@ resource "aws_lambda_function" "get_messages" {
       OPENAI_SECRET_ARN = aws_secretsmanager_secret.openai_api.arn
       EMBED_MODEL       = local.embed_model
       CHAT_MODEL        = local.chat_model
+      MESSAGES_TABLE    = aws_dynamodb_table.messages.name
     }
   }
 }

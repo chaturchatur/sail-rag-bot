@@ -21,6 +21,7 @@ from backend.shared import (
 BUCKET = os.environ["BUCKET"]
 NAMESPACE = os.environ.get("NAMESPACE", "default")
 SESSION_PREFIX = f"{NAMESPACE}/sessions"
+MESSAGES_TABLE = os.environ["MESSAGES_TABLE"]
 
 SYSTEM_PROMPT = (
     "You are a helpful assistant answering questions about the provided documents. "
@@ -85,7 +86,7 @@ def handler(event, context):
         }
 
     # Load conversation history from S3
-    conversation_history = get_messages(BUCKET, session_id, NAMESPACE)
+    conversation_history = get_messages(BUCKET, session_id, NAMESPACE, table_name=MESSAGES_TABLE)
 
     # Load index for semantic search
     index, meta = _load(session_id)
@@ -125,13 +126,14 @@ def handler(event, context):
     else:
         current_question = question
 
-    # Save user message to S3
+    # Save user message
     save_message(
         bucket=BUCKET,
         session_id=session_id,
         role="user",
         content=question,
-        namespace=NAMESPACE
+        namespace=NAMESPACE,
+        table_name=MESSAGES_TABLE,
     )
 
     # Build OpenAI messages with conversation history + new question
@@ -144,18 +146,19 @@ def handler(event, context):
     else:
         answer = "I could not find relevant context in the indexed documents."
 
-    # Save assistant response to S3
+    # Save assistant response
     save_message(
         bucket=BUCKET,
         session_id=session_id,
         role="assistant",
         content=answer,
         chunks=chunks,
-        namespace=NAMESPACE
+        namespace=NAMESPACE,
+        table_name=MESSAGES_TABLE,
     )
 
     # Get updated conversation history (includes the messages we just saved)
-    updated_history = get_messages(BUCKET, session_id, NAMESPACE)
+    updated_history = get_messages(BUCKET, session_id, NAMESPACE, table_name=MESSAGES_TABLE)
 
     return {
         "statusCode": 200,

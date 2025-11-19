@@ -38,6 +38,11 @@ from .faiss_utils import (
     merge_indexes,
 )
 
+from .dynamodb_utils import (
+    get_resource,
+    get_table,
+)
+
 from .message_utils import (
     save_message,
     get_messages,
@@ -77,4 +82,7 @@ __all__ = [
     "save_message",
     "get_messages",
     "openai_messages",
+    # dynamodb_utils
+    "get_resource",
+    "get_table",
 ]

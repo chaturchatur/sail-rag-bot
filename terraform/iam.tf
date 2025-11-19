@@ -40,6 +40,24 @@ data "aws_iam_policy_document" "lambda_inline" {
     actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]            # create a log group, log stream and write log events
     resources = ["arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:*"] # all log groups in the account/region
   }
+
+  # dynamodb chat history
+  statement {
+    effect = "Allow"
+    actions = [
+      "dynamodb:BatchWriteItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:UpdateItem",
+    ]
+    resources = [
+      aws_dynamodb_table.messages.arn,
+      "${aws_dynamodb_table.messages.arn}/index/*",
+    ]
+  }
 }
 
 # applies permission to role
