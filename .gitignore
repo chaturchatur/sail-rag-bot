@@ -71,8 +71,6 @@ pass.txt
 # Local history
 .history/
 
-# plan
-plan.md
 
 # Next.js build output
 .next/
