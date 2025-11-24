@@ -12,6 +12,7 @@ from backend.shared import (
     create_metadata,
     download_object,
     embed_texts,
+    extract_pdf,
     extract_txt,
     get_s3_client,
     list_objects,
@@ -44,8 +45,12 @@ def handler(event, context):
     upload_prefix = f"{SESSION_PREFIX}/{session_id}/uploads/"
     index_prefix = f"{SESSION_PREFIX}/{session_id}/index"
 
-    # list all text files in the upload directory
-    keys = [k for k in list_objects(BUCKET, upload_prefix) if k.endswith(".txt")]
+    # list all text and pdf files in the upload directory
+    keys = [
+        k
+        for k in list_objects(BUCKET, upload_prefix)
+        if k.endswith((".txt", ".pdf"))
+    ]
 
     # list to store all text chunks
     all_chunks = []
@@ -55,7 +60,11 @@ def handler(event, context):
             download_object(BUCKET, key, tf.name)
             # read and extract text from downloaded file
             with open(tf.name, "rb") as f:
-                text = extract_txt(f.read())
+                content = f.read()
+                if key.endswith(".pdf"):
+                    text = extract_pdf(content)
+                else:
+                    text = extract_txt(content)
 
         # split text into chunks with overlap (for context)
         chunks = chunk_text(text, chunk_size=1000, overlap=150)
