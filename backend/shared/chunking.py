@@ -1,4 +1,4 @@
-# breaking docs int manageable pieces for vector search and retrieval
+# breaking docs into manageable pieces for vector search and retrieval
 from typing import List, Dict
 import tiktoken
 import pypdf

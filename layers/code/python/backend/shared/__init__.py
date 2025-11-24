@@ -1,6 +1,5 @@
-# backend/shared/__init__.py
-# for stable packaging
-# for lambda to import shared code reliably
+# exposes shared utilities for lambda functions
+# simplifies imports by grouping modules
 
 from .s3_utils import (
     get_s3_client,
@@ -49,8 +48,9 @@ from .message_utils import (
     openai_messages,
 )
 
+# define what is available when importing * from this package
 __all__ = [
-    # s3_utils
+    # s3 utils
     "get_s3_client",
     "generate_put_url",
     "download_object",
@@ -58,17 +58,20 @@ __all__ = [
     "list_objects",
     "if_object",
     "get_etag",
-    # openai_utils
+    
+    # openai utils
     "get_openai_key",
     "get_openai_client",
     "embed_texts",
     "chat",
-    # chunking
+    
+    # text processing utils
     "count_tokens",
     "chunk_text",
     "extract_pdf",
     "extract_txt",
-    # faiss_utils
+    
+    # vector search utils
     "create_index",
     "add_vectors",
     "search_index",
@@ -78,11 +81,13 @@ __all__ = [
     "save_metadata",
     "load_metadata",
     "merge_indexes",
-    # message_utils
+    
+    # message history utils
     "save_message",
     "get_messages",
     "openai_messages",
-    # dynamodb_utils
+    
+    # database utils
     "get_resource",
     "get_table",
 ]

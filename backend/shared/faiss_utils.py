@@ -6,17 +6,17 @@ from typing import List, Tuple, Dict, Any
 import json
 import os
 
-# creates FAISS index
+# creates faiss index
 # exact search via inner product on normalized vectors
 def create_index(dimension: int):
-    # IndexFlatIP = inner product on normalized vectors (cosine similarity)
+    # indexflatip = inner product on normalized vectors (cosine similarity)
     index = faiss.IndexFlatIP(dimension)
     return index
 
-# add vectors to FAISS index
+# add vectors to faiss index
 # normalizes vectors and adds them to the index for cosine similarity
 def add_vectors(index: faiss.Index, vectors: np.ndarray):
-    # FAISS needs contiguous data
+    # faiss needs contiguous data
     if not vectors.flags['C_CONTIGUOUS']:
         vectors = np.ascontiguousarray(vectors)
     
@@ -34,11 +34,11 @@ def search_index(index: faiss.Index, query_vector: np.ndarray, k: int = 5):
     
     return distances[0], indices[0]
 
-# save FAISS index to the disk
+# save faiss index to the disk
 def save_index(index: faiss.Index, path: str):
     faiss.write_index(index, path)
 
-# loads FAISS index from disk
+# loads faiss index from disk
 def load_index(path: str) -> faiss.Index:
     return faiss.read_index(path)
 
