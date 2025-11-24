@@ -3,20 +3,17 @@ import os
 
 from backend.shared import get_messages
 
+# get s3 bucket name, namespace, msg table name from env vars
 BUCKET = os.environ["BUCKET"]
-NAMESPACE = os.environ.get("NAMESPACE", "default")
+NAMESPACE = os.environ.get("NAMESPACE", "default") # default is "default"
 MESSAGES_TABLE = os.environ["MESSAGES_TABLE"]
 
 def handler(event, context):
-    """
-    GET endpoint to retrieve conversation history for a session.
-    Expected path: GET /sessions/{sessionId}/messages
-    """
-    
-    # Extract sessionId from path parameters
+    # get session id from path params
     path_params = event.get("pathParameters") or {}
     session_id = path_params.get("sessionId")
     
+    # check if session id is provided
     if not session_id:
         return {
             "statusCode": 400,
@@ -25,9 +22,10 @@ def handler(event, context):
         }
     
     try:
-        # Retrieve conversation history from S3
+        # get conversation history from dynamodb
         messages = get_messages(BUCKET, session_id, NAMESPACE, table_name=MESSAGES_TABLE)
         
+        # return successful response with messages
         return {
             "statusCode": 200,
             "headers": {"Content-Type": "application/json"},
@@ -39,6 +37,7 @@ def handler(event, context):
         }
     
     except Exception as e:
+        # log error and return 500 response
         print(f"error retrieving messages for session {session_id}: {e}")
         return {
             "statusCode": 500,
