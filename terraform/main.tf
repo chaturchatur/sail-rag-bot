@@ -1,3 +1,5 @@
+# tf config block
+# defines required providers and backend settings
 terraform {
   required_version = ">= 1.5.0"
 
@@ -13,6 +15,8 @@ terraform {
   }
 }
 
+# configure aws provider
+# specify region where resources are created
 provider "aws" {
   region = var.region
 }
@@ -26,6 +30,6 @@ locals {
   chat_model   = "gpt-4o-mini"
 }
 
-# aws account/region data
+# gets identity of current aws account
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}

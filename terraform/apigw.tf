@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "http_api" {
   name          = "${local.project_name}-http-api"
   protocol_type = "HTTP" # REST API 
 
-  # cors configuration
+  # cors configuration for browser security
   cors_configuration {
     allow_origins = [
       "http://localhost:3000"
@@ -17,22 +17,23 @@ resource "aws_apigatewayv2_api" "http_api" {
   }
 }
 
+# create log group for api access logs
 resource "aws_cloudwatch_log_group" "http_api_access" {
   name              = "/aws/apigateway/${local.project_name}-http-access"
   retention_in_days = 14
 }
 
-# integrating with backend/lambda function
+# integration: get presigned url
 # connects API gateway to lambda function
-# get presigned url for file upload
 resource "aws_apigatewayv2_integration" "upload_url" {
-  api_id                 = aws_apigatewayv2_api.http_api.id              # which API this integration belongs to
-  integration_type       = "AWS_PROXY"                                   # aws_proxy = forward everything to lambda
-  integration_uri        = aws_lambda_function.get_upload_url.invoke_arn # address for the lambda function
-  integration_method     = "POST"                                        # always POST for lambda
-  payload_format_version = "2.0"                                         # new simpler version format 
+  api_id                 = aws_apigatewayv2_api.http_api.id                 # which API this integration belongs to
+  integration_type       = "AWS_PROXY"                                      # aws_proxy = forward everything to lambda
+  integration_uri        = aws_lambda_function.get_upload_url.invoke_arn    # address for the lambda function
+  integration_method     = "POST"                                           # always POST for lambda
+  payload_format_version = "2.0"                                            # new simpler version format 
 }
 
+# integration: create session
 resource "aws_apigatewayv2_integration" "create_session" {
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
@@ -41,7 +42,7 @@ resource "aws_apigatewayv2_integration" "create_session" {
   payload_format_version = "2.0"
 }
 
-# process uploaded docs, build search index
+# integration: ingest documents
 resource "aws_apigatewayv2_integration" "ingest" {
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
@@ -50,7 +51,7 @@ resource "aws_apigatewayv2_integration" "ingest" {
   payload_format_version = "2.0"
 }
 
-# answer questions using the index
+# integration: query index
 resource "aws_apigatewayv2_integration" "query" {
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
@@ -59,7 +60,7 @@ resource "aws_apigatewayv2_integration" "query" {
   payload_format_version = "2.0"
 }
 
-# retrieve conversation history for a session
+# integration: get chat history
 resource "aws_apigatewayv2_integration" "get_messages" {
   api_id                 = aws_apigatewayv2_api.http_api.id
   integration_type       = "AWS_PROXY"
@@ -68,46 +69,50 @@ resource "aws_apigatewayv2_integration" "get_messages" {
   payload_format_version = "2.0"
 }
 
-# route/ url mapping
+# route: /upload-url
 # maps HTTP requests to integrations
 resource "aws_apigatewayv2_route" "route_upload_url" {
   api_id    = aws_apigatewayv2_api.http_api.id
-  route_key = "POST /upload-url"                                           # when someone POSTs to /upload-url
-  target    = "integrations/${aws_apigatewayv2_integration.upload_url.id}" # points to integration or which lambda to call
+  route_key = "POST /upload-url"                                              # when someone POSTs to /upload-url
+  target    = "integrations/${aws_apigatewayv2_integration.upload_url.id}"    # points to integration or which lambda to call
 }
 
+# route: /sessions
 resource "aws_apigatewayv2_route" "route_create_session" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /sessions"
   target    = "integrations/${aws_apigatewayv2_integration.create_session.id}"
 }
 
+# route: /ingest
 resource "aws_apigatewayv2_route" "route_ingest" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /ingest"
   target    = "integrations/${aws_apigatewayv2_integration.ingest.id}"
 }
 
+# route: /query
 resource "aws_apigatewayv2_route" "route_query" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "POST /query"
   target    = "integrations/${aws_apigatewayv2_integration.query.id}"
 }
 
+# route: /sessions/{sessionId}/messages
 resource "aws_apigatewayv2_route" "route_get_messages" {
   api_id    = aws_apigatewayv2_api.http_api.id
   route_key = "GET /sessions/{sessionId}/messages"
   target    = "integrations/${aws_apigatewayv2_integration.get_messages.id}"
 }
 
-# stage/ deployment environment
-# creates a deployment stage 
+# stage configuration
 # makes API actually live and accessible to users
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.http_api.id
   name        = "$default" # default stage name
   auto_deploy = true       # auto deploys changes when routes are updated
 
+  # configure access logging
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.http_api_access.arn
     format = jsonencode({
@@ -126,15 +131,14 @@ resource "aws_apigatewayv2_stage" "default" {
   }
 }
 
-# lambda permission/security
+# lambda permissions
 # allow API Gateway to invoke lambdas
-# lambdas cant be called by other service
-# this allows api gateway to call them
+# lambdas cant be called by other service by default
 resource "aws_lambda_permission" "apigw_upload_url" {
   statement_id  = "AllowAPIGatewayInvokeUploadURL"
-  action        = "lambda:InvokeFunction" # permission to call the function
+  action        = "lambda:InvokeFunction"                                 # permission to call the function
   function_name = aws_lambda_function.get_upload_url.function_name
-  principal     = "apigateway.amazonaws.com" # API gateway service
+  principal     = "apigateway.amazonaws.com"                              # API gateway service
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
 
