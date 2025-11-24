@@ -13,14 +13,17 @@ import {
 } from "@tabler/icons-react";
 import classes from "./page.module.css";
 
+// get api base url from environment variables
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
+// response structure for upload url endpoint
 type UploadUrlResponse = {
   url: string;
   putHeaders?: Record<string, string>;
   key: string;
 };
 
+// structure for text chunks returned in search results
 type QueryChunk = {
   text: string;
   source?: string | null;
@@ -28,25 +31,28 @@ type QueryChunk = {
   score?: number;
 };
 
-// Message type for conversation history
+// structure for a single chat message
 type Message = {
   role: "user" | "assistant";
   content: string;
   timestamp: string;
-  chunks?: QueryChunk[];
+  chunks?: QueryChunk[]; // source chunks for assistant answers
 };
 
+// response structure for query endpoint
 type QueryResponse = {
   answer: string;
   chunks: QueryChunk[];
   messages?: Message[];
 };
 
+// metadata associated with a chat session
 type SessionMetadata = {
   title?: string;
   [key: string]: unknown;
 };
 
+// structure for a chat session
 type Session = {
   sessionId: string;
   createdAt?: string;
@@ -57,17 +63,20 @@ type Session = {
 
 type CreateSessionResponse = Session;
 
+// response structure for getting message history
 type GetMessagesResponse = {
   sessionId: string;
   messages: Message[];
   count: number;
 };
 
+// helper to generate display label for a session
 const formatSessionLabel = (session: Session | null) => {
   if (!session) {
     return "session";
   }
 
+  // use title from metadata if available
   if (
     session.metadata &&
     typeof session.metadata.title === "string" &&
@@ -76,62 +85,79 @@ const formatSessionLabel = (session: Session | null) => {
     return session.metadata.title;
   }
 
+  // fallback to session id
   return `chat ${session.sessionId.slice(0, 8)}`;
 };
 
 export default function HomePage() {
+  // files selected by user but not yet uploaded
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  // map of session ids to list of uploaded filenames
   const [sessionUploads, setSessionUploads] = useState<
     Record<string, string[]>
   >({});
+  // current input text in the chat box
   const [message, setMessage] = useState("");
+  // user-facing status message (e.g. "Uploading...")
   const [status, setStatus] = useState<string | null>(null);
+  // user-facing error message
   const [error, setError] = useState<string | null>(null);
+  // loading states for various operations
   const [isUploading, setIsUploading] = useState(false);
   const [isQuerying, setIsQuerying] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  // tracks if we've tried to auto-create an initial session
   const [hasSessionAttempted, setHasSessionAttempted] = useState(false);
+  // list of all available chat sessions
   const [sessions, setSessions] = useState<Session[]>([]);
+  // currently selected session id
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // NEW: Store messages per session
+  // cache of message history per session
   const [sessionMessages, setSessionMessages] = useState<
     Record<string, Message[]>
   >({});
 
+  // ui state for sidebar
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  // refs for dom elements
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  // check if a session is currently active
   const hasSession = activeSessionId !== null;
+  // get current session object
   const activeSession = hasSession
     ? sessions.find((session) => session.sessionId === activeSessionId) ?? null
     : null;
+  // get files uploaded for current session
   const uploadedFiles = activeSession
     ? sessionUploads[activeSession.sessionId] ?? []
     : [];
 
-  // Get messages for active session
+  // get message history for current session
   const messages = activeSession
     ? sessionMessages[activeSession.sessionId] ?? []
     : [];
 
+  // derived busy states
   const isUploadInProgress = isUploading || isQuerying;
   const isBusy = isUploadInProgress || isCreatingSession;
 
+  // dynamic class for sidebar animation
   const sidebarClassName = `${classes.sidebar} ${
     isSidebarOpen ? classes.sidebarExpanded : classes.sidebarCollapsed
   }`;
 
-  // Auto-scroll to bottom when messages change
+  // auto-scroll to bottom whenever new messages are added
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
 
-  // Load messages from API
+  // fetch message history from backend
   const loadMessages = useCallback(
     async (sessionId: string) => {
       if (!API_BASE_URL) {
@@ -141,6 +167,7 @@ export default function HomePage() {
       setIsLoadingMessages(true);
 
       try {
+        // call get messages endpoint
         const res = await fetch(
           `${API_BASE_URL}/sessions/${sessionId}/messages`,
           {
@@ -155,14 +182,14 @@ export default function HomePage() {
 
         const data = (await res.json()) as GetMessagesResponse;
 
+        // update local message cache with results
         setSessionMessages((prev) => ({
           ...prev,
           [sessionId]: data.messages || [],
         }));
       } catch (err) {
         console.error("Error loading messages:", err);
-        // Don't show error to user for message loading failures
-        // Just default to empty messages
+        // on error, initialize with empty list to prevent ui issues
         setSessionMessages((prev) => ({
           ...prev,
           [sessionId]: [],
@@ -174,6 +201,7 @@ export default function HomePage() {
     [API_BASE_URL]
   );
 
+  // create a new chat session
   const createSession = useCallback(async () => {
     if (!API_BASE_URL) {
       setError("NEXT_PUBLIC_API_BASE_URL is not set.");
@@ -185,6 +213,7 @@ export default function HomePage() {
     setError(null);
 
     try {
+      // call create session endpoint
       const res = await fetch(`${API_BASE_URL}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,6 +226,7 @@ export default function HomePage() {
 
       const data = (await res.json()) as CreateSessionResponse;
 
+      // construct session object from response
       const session: Session = {
         sessionId: data.sessionId,
         createdAt: data.createdAt,
@@ -205,6 +235,7 @@ export default function HomePage() {
         namespace: data.namespace,
       };
 
+      // add new session to top of list
       setSessions((prev) => {
         const filtered = prev.filter(
           (item) => item.sessionId !== session.sessionId
@@ -212,7 +243,10 @@ export default function HomePage() {
         return [session, ...filtered];
       });
 
+      // switch to new session immediately
       setActiveSessionId(session.sessionId);
+
+      // initialize upload tracking for new session
       setSessionUploads((prev) => {
         if (prev[session.sessionId]) {
           return prev;
@@ -220,12 +254,13 @@ export default function HomePage() {
         return { ...prev, [session.sessionId]: [] };
       });
 
-      // Initialize empty messages for new session
+      // initialize empty message history
       setSessionMessages((prev) => ({
         ...prev,
         [session.sessionId]: [],
       }));
 
+      // reset ui state
       setMessage("");
       setPendingFiles([]);
       setStatus(`Created ${formatSessionLabel(session)}.`);
@@ -234,12 +269,14 @@ export default function HomePage() {
         err instanceof Error ? err.message : "Unable to create session.";
       setStatus(null);
       setError(details);
+      // mark attempt as failed so we don't infinite loop
       setHasSessionAttempted(true);
     } finally {
       setIsCreatingSession(false);
     }
   }, [API_BASE_URL]);
 
+  // auto-create session on first load if none exist
   useEffect(() => {
     if (!API_BASE_URL) {
       setError("NEXT_PUBLIC_API_BASE_URL is not set.");
@@ -258,6 +295,7 @@ export default function HomePage() {
     sessions.length,
   ]);
 
+  // handle file selection from file input
   const handleFileSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selected = event.target.files ? Array.from(event.target.files) : [];
 
@@ -271,6 +309,7 @@ export default function HomePage() {
       return;
     }
 
+    // add new files to pending list, avoiding duplicates
     setPendingFiles((prev) => {
       const existingKeys = new Set(
         prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`)
@@ -290,9 +329,11 @@ export default function HomePage() {
 
     setStatus(null);
     setError(null);
+    // reset input so same file can be selected again if needed
     event.target.value = "";
   };
 
+  // remove a file from pending list
   const handleRemovePendingFile = (fileToRemove: File) => {
     setPendingFiles((prev) =>
       prev.filter(
@@ -306,6 +347,7 @@ export default function HomePage() {
     );
   };
 
+  // trigger hidden file input click
   const handleOpenFilePicker = () => {
     if (!hasSession) {
       setError("Create or select a chat session first.");
@@ -315,6 +357,7 @@ export default function HomePage() {
     fileInputRef.current?.click();
   };
 
+  // switch active chat session
   const handleSelectSession = (sessionId: string) => {
     if (sessionId === activeSessionId || isBusy) {
       return;
@@ -323,10 +366,13 @@ export default function HomePage() {
     const session =
       sessions.find((item) => item.sessionId === sessionId) ?? null;
 
+    // update state for new session
     setActiveSessionId(sessionId);
     setMessage("");
     setPendingFiles([]);
     setError(null);
+
+    // ensure upload tracking exists
     setSessionUploads((prev) => {
       if (prev[sessionId]) {
         return prev;
@@ -334,7 +380,7 @@ export default function HomePage() {
       return { ...prev, [sessionId]: [] };
     });
 
-    // Load messages if we haven't loaded them yet
+    // fetch messages if not already cached
     if (!sessionMessages[sessionId]) {
       void loadMessages(sessionId);
     }
@@ -346,9 +392,11 @@ export default function HomePage() {
     }
   };
 
+  // handle enter key in textarea
   const handleTextareaKeyDown = (
     event: React.KeyboardEvent<HTMLTextAreaElement>
   ) => {
+    // submit on enter (without shift)
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
 
@@ -363,6 +411,7 @@ export default function HomePage() {
     }
   };
 
+  // execute search/chat query against backend
   const runQuery = async (question: string, session: Session) => {
     if (!API_BASE_URL) {
       setError("NEXT_PUBLIC_API_BASE_URL is not set.");
@@ -374,12 +423,14 @@ export default function HomePage() {
     setError(null);
 
     try {
+      // call query endpoint with user question
       const queryRes = await fetch(`${API_BASE_URL}/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, sessionId: session.sessionId }),
       });
 
+      // handle missing index error specially
       if (queryRes.status === 404) {
         const payload = (await queryRes.json()) as { error?: string };
         setError(
@@ -396,7 +447,7 @@ export default function HomePage() {
 
       const data = (await queryRes.json()) as QueryResponse;
 
-      // Update messages from response
+      // update messages with response (includes answer & chunks)
       if (data.messages && data.messages.length > 0) {
         setSessionMessages((prev) => ({
           ...prev,
@@ -415,6 +466,7 @@ export default function HomePage() {
     }
   };
 
+  // main submission handler (upload + ingest + query)
   const handleSubmit = async () => {
     if (!API_BASE_URL) {
       setError("NEXT_PUBLIC_API_BASE_URL is not set.");
@@ -439,7 +491,7 @@ export default function HomePage() {
 
     setError(null);
 
-    // Immediately add user message to UI
+    // optimistically add user message to ui
     const userMessage: Message = {
       role: "user",
       content: question,
@@ -451,9 +503,10 @@ export default function HomePage() {
       [session.sessionId]: [...(prev[session.sessionId] || []), userMessage],
     }));
 
-    // Clear input immediately
+    // clear input immediately
     setMessage("");
 
+    // handle file uploads if present
     if (pendingFiles.length > 0) {
       setIsUploading(true);
       setStatus(`Uploading files for ${sessionLabel}...`);
@@ -462,6 +515,7 @@ export default function HomePage() {
         for (const file of pendingFiles) {
           setStatus(`Uploading ${file.name} to ${sessionLabel}...`);
 
+          // get presigned url for upload
           const uploadUrlRes = await fetch(`${API_BASE_URL}/upload-url`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -481,6 +535,7 @@ export default function HomePage() {
           const { url, putHeaders }: UploadUrlResponse =
             await uploadUrlRes.json();
 
+          // upload file directly to s3 using presigned url
           const putRes = await fetch(url, {
             method: "PUT",
             body: file,
@@ -500,6 +555,7 @@ export default function HomePage() {
           `All files uploaded for ${sessionLabel}. Triggering ingest...`
         );
 
+        // trigger ingestion (vector embedding)
         const ingestRes = await fetch(`${API_BASE_URL}/ingest`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -519,6 +575,7 @@ export default function HomePage() {
           `Ingest complete for ${sessionLabel}: ${chunkCount} chunks. Asking your question...`
         );
 
+        // mark files as uploaded in ui
         setSessionUploads((prev) => {
           const already = prev[session.sessionId] ?? [];
           const newNames = pendingFiles.map((file) => file.name);
@@ -539,15 +596,19 @@ export default function HomePage() {
       }
     }
 
+    // execute query after uploads complete
     await runQuery(question, session);
+    // clear pending files list
     setPendingFiles([]);
   };
 
   return (
     <div className={classes.app}>
+      {/* sidebar for session management */}
       <aside className={sidebarClassName}>
         <div className={classes.sidebarContent}>
           <div className={classes.sidebarHeader}>
+            {/* toggle sidebar visibility */}
             <ActionIcon
               variant="subtle"
               size="lg"
@@ -558,6 +619,7 @@ export default function HomePage() {
               <IconMenu2 size={18} />
             </ActionIcon>
 
+            {/* create new chat button */}
             <button
               type="button"
               className={`${classes.sidebarNewChatButton} ${
@@ -581,6 +643,7 @@ export default function HomePage() {
             </button>
           </div>
 
+          {/* list of existing sessions */}
           <div className={classes.sidebarSection}>
             {isSidebarOpen && (
               <Text className={classes.sidebarSectionHeading}>
@@ -615,6 +678,7 @@ export default function HomePage() {
                 );
               })}
 
+              {/* empty state for session list */}
               {sessions.length === 0 && (
                 <Text size="sm" className={classes.sessionEmpty}>
                   {isCreatingSession
@@ -627,19 +691,21 @@ export default function HomePage() {
         </div>
       </aside>
 
+      {/* main chat area */}
       <div className={classes.page}>
         <header className={classes.topBar}>
           <Text className={classes.brand}>Sail</Text>
         </header>
 
         <main className={classes.main}>
+          {/* welcome message for empty state */}
           {messages.length === 0 && !isLoadingMessages && (
             <div className={classes.mainHeader}>
               <Text className={classes.greeting}>Hello, Ritvik</Text>
             </div>
           )}
 
-          {/* Conversation messages */}
+          {/* conversation history */}
           {messages.length > 0 && (
             <div className={classes.conversationContainer}>
               {messages.map((msg, index) => (
@@ -655,7 +721,7 @@ export default function HomePage() {
                     <Text className={classes.messageText}>{msg.content}</Text>
                   </div>
 
-                  {/* Show sources for assistant messages */}
+                  {/* display sources for assistant responses */}
                   {msg.role === "assistant" &&
                     msg.chunks &&
                     msg.chunks.length > 0 && (
@@ -691,7 +757,7 @@ export default function HomePage() {
                 </div>
               ))}
 
-              {/* Typing indicator */}
+              {/* pending query indicator */}
               {isQuerying && (
                 <div className={classes.assistantMessage}>
                   <div className={classes.messageContent}>
@@ -701,10 +767,12 @@ export default function HomePage() {
                 </div>
               )}
 
+              {/* invisible element for scrolling to bottom */}
               <div ref={messagesEndRef} />
             </div>
           )}
 
+          {/* loading indicator for fetching history */}
           {isLoadingMessages && (
             <div className={classes.statusCard}>
               <Loader size="sm" />
@@ -712,10 +780,11 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Query input card - fixed at bottom */}
+          {/* input area */}
           <div className={classes.queryCard}>
             <div className={classes.queryBody}>
               <div className={classes.queryInputRow}>
+                {/* text input */}
                 <Textarea
                   placeholder={
                     hasSession
@@ -734,6 +803,7 @@ export default function HomePage() {
                     input: classes.textarea,
                   }}
                 />
+                {/* send/upload button */}
                 <ActionIcon
                   variant="filled"
                   radius="xl"
@@ -756,16 +826,18 @@ export default function HomePage() {
               </div>
             </div>
 
+            {/* hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt"
+              accept=".txt,.pdf"
               multiple
               disabled={!hasSession}
               className={classes.hiddenInput}
               onChange={handleFileSelection}
             />
 
+            {/* list of files pending upload */}
             {pendingFiles.length > 0 && (
               <div className={classes.attachments}>
                 {pendingFiles.map((file) => (
@@ -777,6 +849,7 @@ export default function HomePage() {
                     <Text size="xs" className={classes.attachmentLabel}>
                       {file.name}
                     </Text>
+                    {/* remove file button */}
                     <ActionIcon
                       size="sm"
                       variant="subtle"
@@ -791,6 +864,7 @@ export default function HomePage() {
               </div>
             )}
 
+            {/* list of already uploaded files */}
             {uploadedFiles.length > 0 && (
               <div className={classes.uploadedSection}>
                 <Text className={classes.uploadedHeading}>Uploaded</Text>
@@ -811,6 +885,7 @@ export default function HomePage() {
               </div>
             )}
 
+            {/* attach file button */}
             <div className={classes.queryControls}>
               <Button
                 radius="xl"
@@ -825,6 +900,7 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* status notification */}
           {status && (
             <div className={classes.statusCard}>
               {(isUploadInProgress || isCreatingSession) && (
@@ -834,6 +910,7 @@ export default function HomePage() {
             </div>
           )}
 
+          {/* error notification */}
           {error && (
             <div className={classes.errorCard}>
               <IconAlertCircle size={16} />
